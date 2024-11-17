@@ -36,7 +36,7 @@ async def crawl(url_link, filename, is_base_url):
             if is_base_url:
                markdown_content = result.markdown            
             else:
-                markdown_content = result.fit_markdown
+                markdown_content = result.fit_markdown.replace('    ```','```')
 
             md_with_absolute_links = convert_relative_links(markdown_content, base_url)
             os.makedirs(projectname, exist_ok=True)
@@ -57,7 +57,7 @@ load_dotenv(find_dotenv())
 Groq_Token = os.getenv('GROQ_API_KEY')
 
 llm = ChatGroq(groq_api_key=Groq_Token, model_name="gemma2-9b-it")
-result = llm.invoke("Extract all internal links from following extracted webpage. Complete links with prefix: " + base_url + " if required, and show as a list. Url should be absolute url and start with http \n Extracted Webpage: " + contents)
+result = llm.invoke("Extract all internal links from following extracted webpage. Provide suitable title if not present. Url should be absolute url and start with http \n Extracted Webpage: " + contents)
 uncleaned_json_result = llm.invoke(f"Convert the text to json like: "
                                    '''{
                                       "links": [
