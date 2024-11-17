@@ -29,11 +29,15 @@ pattern = re.compile(r'\[([^\]]+)\]\((?!http)([^\)]+)\)')
 def convert_relative_links(content, base_url):
     return pattern.sub(lambda match: f"[{match.group(1)}]({urljoin(base_url, match.group(2))})", content)
 
-async def crawl(url_link, filename):
+async def crawl(url_link, filename, is_base_url):
     try:
-        async with AsyncWebCrawler(verbose=True) as crawler:
+        async with AsyncWebCrawler(verbose=False) as crawler:
             result = await crawler.arun(url=url_link)
-            markdown_content = result.markdown
+            if is_base_url:
+               markdown_content = result.markdown            
+            else:
+                markdown_content = result.fit_markdown
+
             md_with_absolute_links = convert_relative_links(markdown_content, base_url)
             os.makedirs(projectname, exist_ok=True)
             with open(filename, "w", encoding='utf-8') as f:
@@ -44,7 +48,7 @@ async def crawl(url_link, filename):
         print(f"An unexpected error occurred while crawling {url_link}: {e}")
 
 
-asyncio.run(crawl(url_link=base_url, filename=filename))
+asyncio.run(crawl(url_link=base_url, filename=filename, is_base_url=True))
 
 with open(filename, "r", encoding='utf-8') as f:
     contents = f.read()
@@ -52,7 +56,7 @@ with open(filename, "r", encoding='utf-8') as f:
 load_dotenv(find_dotenv())
 Groq_Token = os.getenv('GROQ_API_KEY')
 
-llm = ChatGroq(groq_api_key=Groq_Token, model_name="llama-3.1-8b-instant")
+llm = ChatGroq(groq_api_key=Groq_Token, model_name="gemma2-9b-it")
 result = llm.invoke("Extract all internal links from following extracted webpage. Complete links with prefix: " + base_url + " if required, and show as a list. Url should be absolute url and start with http \n Extracted Webpage: " + contents)
 uncleaned_json_result = llm.invoke(f"Convert the text to json like: "
                                    '''{
@@ -84,6 +88,6 @@ for link in links_data['links']:
     try:
         filename = "./" + projectname + "/" + f"{link['title'].replace('/', '_').replace(' ', '_').replace(':', '_')}" + ".md"
         url = link["link"]
-        asyncio.run(crawl(url_link=url, filename=filename))
+        asyncio.run(crawl(url_link=url, filename=filename, is_base_url=False))
     except Exception as e:
         print(f"Could not process {url}: {e}")
